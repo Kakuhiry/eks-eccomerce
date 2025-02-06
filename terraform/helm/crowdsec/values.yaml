@@ -1,0 +1,26 @@
+container_runtime: containerd
+agent:
+  acquisition:
+    - namespace: traefik
+      podName: traefik-*
+      program: traefik
+      poll_without_inotify: true
+  env:
+    - name: PARSERS
+      value: "crowdsecurity/cri-logs"
+    - name: COLLECTIONS
+      value: "crowdsecurity/traefik"
+    - name: DISABLE_PARSERS
+      value: "crowdsecurity/whitelists"
+  persistentVolume:
+    config:
+      enabled: false
+lapi:
+  dashboard:
+    enabled: false
+    ingress:
+      host: http://k8s-traefik-traefiki-219a67b48e-1590413801.us-east-1.elb.amazonaws.com/
+      enabled: true
+  envFrom:
+    - secretRef:
+        name: crowdsec-env-secret

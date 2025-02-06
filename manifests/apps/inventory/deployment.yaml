@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory
+  namespace: inventory
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inventory
+  template:
+    metadata:
+      labels:
+        app: inventory
+    spec:
+      containers:
+      - name: inventory
+        image: 869681612022.dkr.ecr.us-east-1.amazonaws.com/inventory:latest
+        imagePullPolicy: Always
+        envFrom:
+          - secretRef:
+              name: rds-auth-secret

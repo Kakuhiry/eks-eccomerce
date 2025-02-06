@@ -1,0 +1,18 @@
+ingressClass:
+  enabled: true
+  isDefaultClass: true
+logs:
+  access:
+    enabled: true
+additionalArguments:  
+  - "--entrypoints.web.http.middlewares=traefik-traefik-bouncer@kubernetescrd"
+  - "--entrypoints.websecure.http.middlewares=traefik-traefik-bouncer@kubernetescrd"
+ingressRoute:
+  dashboard:
+    enabled: false
+service:
+  enabled: true
+  type: NodePort
+globalArguments:
+  - "--api.insecure=true"
+

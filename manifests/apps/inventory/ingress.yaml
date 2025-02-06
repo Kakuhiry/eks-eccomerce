@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: inventory
+  namespace: inventory
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+    traefik.ingress.kubernetes.io/router.middlewares: traefik-basic-auth@kubernetescrd
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /inventory
+        pathType: Prefix
+        backend:
+          service:
+            name: inventory
+            port:
+              number: 80

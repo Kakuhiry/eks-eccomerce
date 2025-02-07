@@ -81,6 +81,7 @@ resource "kubernetes_service_account" "external_secrets_operator_service_account
       "eks.amazonaws.com/role-arn" = aws_iam_role.external_secrets_operator_role.arn
     }
   }
+  depends_on = [ module.eks ]
 }
 
 resource "helm_release" "external_secrets_operator" {

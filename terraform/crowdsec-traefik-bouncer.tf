@@ -8,7 +8,7 @@ resource "helm_release" "crowdsec-traefik-bouncer" {
 
   values = [yamlencode({
     bouncer = {
-      crowdsec_bouncer_api_key = "${var.crowdsec_bouncer_api_key}"
+      crowdsec_bouncer_api_key = "${var.crowdsec_bouncer_api_key != "" ? var.crowdsec_bouncer_api_key : null}"
       crowdsec_agent_host      = "crowdsec-service.crowdsec.svc.cluster.local:8080"
     }
   })]

@@ -6,6 +6,171 @@ This document details the steps I took to complete the DevOps challenge for the 
 
 The challenge involved setting up and configuring infrastructure, automating deployments, and ensuring reliability and scalability. In this document, I will walk through my approach, the tools I used, and any challenges I encountered along the way.
 
+## Prerequisites
+
+Terraform (This project was done with version v1.9.6) \
+AWS CLI \
+Python3 (This project was done with version 3.13.1)\
+Docker
+
+## Replication steps
+
+### **1)** Create a `terraform.tfvars`
+
+create the file and specificy the following variables:
+
+- region
+- name
+- vpc_cidr
+- azs
+- public_subnets
+- private_subnets
+- intra_subnets
+- db_name
+- db_username
+- db_password
+- kms_key_id
+
+
+For example:
+```
+region                   = "us-west-1" 
+name                     = "my-cluster" 
+vpc_cidr                 = "10.1.0.0/16" 
+azs                      = ["us-west-1a", "us-west-1b"] 
+public_subnets           = ["10.1.1.0/24", "10.1.2.0/24"] 
+private_subnets          = ["10.1.3.0/24", "10.1.4.0/24"] 
+intra_subnets            = ["10.1.5.0/24", "10.1.6.0/24"]
+db_name                  = YOUR_DB_NAME
+db_username              = YOUR_DB_USERNAME
+db_password              = YOUR_DB_PASSWORD
+kms_key_id               = YOUR_KMS_ID
+crowdsec_bouncer_api_key = ""
+```
+
+##### These are not the exact values i used for this configuration, these are a mere reference
+
+
+### **2)** Without Basic Authentication Middleware
+If you're not interested in running the services behind an authentication middleware, remove the annotation from the ingress of each application
+
+```
+manifests/apps/inventory/ingress.yaml
+
+annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: traefik-basic-auth@kubernetescrd <- remove this annotation
+```
+
+### **2)** With Basic Authentication Middleware
+if you want the basic-auth middleware, create the secret with the credentials you're gonna use to authenticate with the service for the External Secrets Operator to pull and inject into Traefik
+
+example:
+
+```
+aws secretsmanager create-secret \                
+  --name TRAEFIK_BASIC_AUTH_CREDS \
+  --secret-string '{"username": "admin", "password": "Secret123"}' \
+  --region us-east-1
+```
+
+### **3)** Plan and pply
+
+```
+terraform plan 
+terraform apply
+```
+
+### **4)** Build Python Applications
+
+Build images
+```
+docker build -t product Product
+docker build -t inventory Inventory
+docker build -t order Order
+```
+Tag images
+```
+docker tag product:latest ${YOUR_ACCOUNT_NUMBER}$.dkr.ecr.${YOUR_REGION}.amazonaws.com/product:latest
+
+docker tag inventory:latest ${YOUR_ACCOUNT_NUMBER}$.dkr.ecr.${YOUR_REGION}.amazonaws.com/inventory:latest
+
+docker tag order:latest ${YOUR_ACCOUNT_NUMBER}$.dkr.ecr.${YOUR_REGION}.amazonaws.com/order:latest
+```
+
+Push your images
+```
+docker push 869681612022.dkr.ecr.us-east-1.amazonaws.com/product:latest 
+
+docker push 869681612022.dkr.ecr.us-east-1.amazonaws.com/inventory:latest  
+
+docker push 869681612022.dkr.ecr.us-east-1.amazonaws.com/order:latest  
+```
+
+### 5) Apply manifests
+
+Lastly you will have to create all the application manifests such as: \
+- Deployments
+- Services
+- Ingresses
+- ExternalSecrets
+- HPA
+
+Run:
+```
+kubectl apply ./manifests
+```
+
+## Extra configuration
+
+If you're interested in also deploying crowdsec, as well as connecting it to Traefik Bouncer then there are a couple more step that you'll have to follow:
+
+### Crowdsec
+
+1- Apply the clusterSecretStore to authenticate for the secret to be pulled
+
+```
+kubectl apply -f manifests/external-secrets/clusterSecretStore.yaml
+```
+
+2- Create the secret with the variables Crowdsec needs to be installed so then the ESO can pull the secret and inject it into your cluster
+
+```
+For your ENROLL_KEY create an account at https://www.crowdsec.net/ it's Free
+```
+
+```
+aws secretsmanager create-secret \                
+  --name CROWDSEC_SECRET \
+  --secret-string '{"ENROLL_KEY": "YOUR-ENROLL_KEY", "ENROLL_INSTANCE_NAME": "MY-CLUSTER", "ENROLL_TAGS": "k8s linux test"}' \
+  --region us-east-1
+```
+
+3- Specificy the host that it's gonna be listening to:
+
+```
+terraform/helm/crowdsec/values.yaml
+
+lapi:
+  dashboard:
+    enabled: false
+    ingress:
+      host: INSERT-YOUR-HOST
+```
+
+### Traefik Bouncer
+
+**1-** after installing `Crowdsec` you'll have to exec into the `crowdsec-lapi-*` pod to enroll the Traefik Bouncer
+
+```
+kubectl -n crowdsec exec -it crowdsec-lapi-* -- sh
+```
+then run
+```
+/ # cscli bouncers add traefik-bouncer 
+```
+
+which will then output an API Key and you can place it in your variable `var.crowdsec_bouncer_api_key`
+
 ## Services
 
 For the services, 3 small Python applications were developed that interact internally throught AWS Platform with an Database (RDS instance). These services are inventory product and order. 

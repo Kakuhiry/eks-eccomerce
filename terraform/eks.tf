@@ -48,22 +48,26 @@ module "eks" {
   }
 
   tags = local.tags
+  depends_on = [ module.vpc ]
 }
 
 resource "kubernetes_namespace" "orders" {
   metadata {
     name = "orders"
   }
+  depends_on = [ module.eks.eks_managed_node_groups ]
 }
 
 resource "kubernetes_namespace" "inventory" {
   metadata {
     name = "inventory"
   }
+  depends_on = [ module.eks.eks_managed_node_groups ]
 }
 
 resource "kubernetes_namespace" "produdct" {
   metadata {
     name = "produdct"
   }
+  depends_on = [ module.eks.eks_managed_node_groups ]
 }
